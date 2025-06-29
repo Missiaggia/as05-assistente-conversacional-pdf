@@ -23,7 +23,11 @@ LLM_REPO_ID = "meta-llama/Meta-Llama-3-8B-Instruct"
 
 # --- Funções ---
 def create_rag_chain():
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    model_kwargs = {'device': 'cpu'}
+    embeddings = HuggingFaceEmbeddings(
+        model_name=EMBEDDING_MODEL,
+        model_kwargs=model_kwargs
+    )
     try:
         vector_store = FAISS.load_local(VECTOR_STORE_PATH, embeddings, allow_dangerous_deserialization=True)
     except Exception as e:

@@ -58,7 +58,11 @@ def create_vector_store(pdf_path=None):
         print("Vector Store antigo removido.")
     
     print("Gerando embeddings e criando novo Vector Store FAISS...")
-    embeddings = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2')
+    model_kwargs = {'device': 'cpu'}
+    embeddings = HuggingFaceEmbeddings(
+        model_name='sentence-transformers/all-MiniLM-L6-v2',
+        model_kwargs=model_kwargs
+    )
     
     db = FAISS.from_documents(docs, embeddings)
     print("Novo Vector Store criado do zero.")
