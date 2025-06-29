@@ -24,12 +24,19 @@ Este repositório contém o código-fonte e as instruções para a tarefa **AS05
 ## **Estrutura do Projeto**
 /
 ├── data/                  # Pasta para colocar seus arquivos PDF.
+
 ├── vector_store/          # Criada automaticamente para salvar o índice FAISS.
+
 ├── .env                   # Arquivo local para sua chave de API (NÃO ENVIAR PARA O GIT).
+
 ├── .gitignore             # Especifica arquivos a serem ignorados pelo Git.
+
 ├── app.py                 # Código da aplicação web Streamlit.
+
 ├── ingest.py              # Script para processar os PDFs e criar o índice vetorial.
+
 ├── requirements.txt       # Lista de dependências Python.
+
 └── README.md              # Este arquivo.
 ## **Instruções de Instalação e Configuração**
 
