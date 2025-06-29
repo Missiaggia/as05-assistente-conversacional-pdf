@@ -1,20 +1,20 @@
-# app.py (versão 3 - final e correta)
-
 import os
 import streamlit as st
 from dotenv import load_dotenv
 
-# Importações necessárias de LangChain
+from ingest import create_vector_store
+
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_huggingface import HuggingFaceEndpoint # Importação do Endpoint
-from langchain_huggingface import ChatHuggingFace     # Importação do Adaptador de Chat
+from langchain_huggingface import HuggingFaceEndpoint
+from langchain_huggingface import ChatHuggingFace
 
-# Carrega as variáveis de ambiente (sua chave da Hugging Face)
 load_dotenv()
+
+os.makedirs("data", exist_ok=True)
 
 # --- Constantes ---
 VECTOR_STORE_PATH = "vector_store/"
@@ -22,12 +22,7 @@ EMBEDDING_MODEL = 'sentence-transformers/all-MiniLM-L6-v2'
 LLM_REPO_ID = "meta-llama/Meta-Llama-3-8B-Instruct" 
 
 # --- Funções ---
-
 def create_rag_chain():
-    """
-    Cria a cadeia de RAG (Retrieval-Augmented Generation) completa.
-    """
-    # Carrega o banco de dados vetorial salvo localmente
     embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
     try:
         vector_store = FAISS.load_local(VECTOR_STORE_PATH, embeddings, allow_dangerous_deserialization=True)
@@ -38,7 +33,6 @@ def create_rag_chain():
 
     retriever = vector_store.as_retriever()
 
-    # PASSO 1: Criar o Endpoint base que se conecta ao Hugging Face.
     base_llm = HuggingFaceEndpoint(
         repo_id=LLM_REPO_ID,
         max_new_tokens=512,
@@ -46,11 +40,8 @@ def create_rag_chain():
         huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
     )
 
-    # PASSO 2: Envolver o endpoint no adaptador ChatHuggingFace.
-    # O argumento obrigatório 'llm' recebe o nosso endpoint base.
     llm = ChatHuggingFace(llm=base_llm)
 
-    # Template de prompt otimizado para modelos de chat
     system_prompt = """Você é um assistente de IA focado em responder perguntas com base em um contexto fornecido.
     Use os trechos de texto do contexto para responder à pergunta do usuário.
     Se a resposta não estiver no contexto, diga claramente que você não encontrou a informação nos documentos.
@@ -64,11 +55,9 @@ def create_rag_chain():
         ("human", "{question}"),
     ])
 
-    # Função auxiliar para formatar os documentos recuperados em uma única string
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
 
-    # Construindo a cadeia com a LangChain Expression Language (LCEL)
     rag_chain = (
         {"context": retriever | format_docs, "question": RunnablePassthrough()}
         | prompt
@@ -78,32 +67,86 @@ def create_rag_chain():
     
     return rag_chain
 
-# --- Interface Gráfica com Streamlit ---
-
 st.set_page_config(page_title="Assistente de Documentos PDF", page_icon="🤖")
 
 st.title("🤖 Assistente Conversacional para Documentos PDF")
 st.markdown("""
 Esta aplicação permite que você converse com seus documentos PDF.
-1.  Coloque seus arquivos PDF na pasta `data`.
-2.  Execute o script `ingest.py` para processá-los.
-3.  Faça suas perguntas abaixo e obtenha respostas baseadas nos documentos.
+Faça upload de um PDF ou use os documentos já processados.
 """)
 
-# Verifica se o Vector Store existe antes de iniciar o chat
+st.header("📁 Gerenciar Documentos PDF")
+
+pdf_files = [f for f in os.listdir("data") if f.endswith(".pdf")]
+if pdf_files:
+    st.subheader("Documentos salvos:")
+    for pdf_file in pdf_files:
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            st.text(pdf_file)
+        with col2:
+            if st.button("❌", key=f"delete_{pdf_file}"):
+                os.remove(os.path.join("data", pdf_file))
+                st.success(f"Arquivo {pdf_file} excluído!")
+                st.rerun()
+
+uploaded_file = st.file_uploader("Escolha um arquivo PDF", type="pdf")
+
+if uploaded_file is not None:
+    if st.button("Salvar e Processar PDF"):
+        with st.spinner("Salvando e processando o PDF..."):
+            pdf_path = os.path.join("data", uploaded_file.name)
+            with open(pdf_path, "wb") as f:
+                f.write(uploaded_file.getvalue())
+            
+            success = create_vector_store(pdf_path)
+            
+            if success:
+                st.success(f"PDF {uploaded_file.name} salvo e processado com sucesso!")
+                st.rerun()
+            else:
+                st.error("Erro ao processar o PDF. Verifique se o arquivo é válido.")
+                os.remove(pdf_path)
+
+if pdf_files:
+    if st.button("Reprocessar Todos os PDFs"):
+        with st.spinner("Reprocessando todos os documentos..."):
+            success = create_vector_store()
+            if success:
+                st.success("Todos os documentos foram reprocessados!")
+                st.rerun()
+            else:
+                st.error("Erro ao reprocessar os documentos.")
+
+st.divider()
+
+st.header("💬 Chat com Documentos")
+
 if not os.path.exists(VECTOR_STORE_PATH) or not os.listdir(VECTOR_STORE_PATH):
-    st.error("O diretório do Vector Store não foi encontrado ou está vazio. Por favor, execute o script 'ingest.py' primeiro.")
+    st.warning("Nenhum documento foi processado ainda. Faça upload de um PDF acima para começar.")
 else:
-    # Cria a cadeia de RAG
     rag_chain = create_rag_chain()
 
     if rag_chain:
-        # Campo de entrada para a pergunta do usuário
-        user_question = st.text_input("Faça sua pergunta:")
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
 
-        if user_question:
-            with st.spinner("Buscando a resposta..."):
-                response = rag_chain.invoke(user_question)
-                
-                st.subheader("Resposta:")
-                st.write(response)
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        if prompt := st.chat_input("Faça sua pergunta sobre o documento..."):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            with st.chat_message("assistant"):
+                with st.spinner("Buscando a resposta..."):
+                    response = rag_chain.invoke(prompt)
+                    st.markdown(response)
+
+            st.session_state.messages.append({"role": "assistant", "content": response})
+
+        if st.button("Limpar Conversa"):
+            st.session_state.messages = []
+            st.rerun()
