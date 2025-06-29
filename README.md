@@ -37,9 +37,9 @@ Siga estes passos para configurar e executar o projeto em seu ambiente local.
 
 ### **1. Clonar o Repositório**
 
-bash
-git clone [URL_DO_SEU_REPOSITORIO_GIT]
-cd [NOME_DA_PASTA_DO_PROJETO]
+git clone https://github.com/Missiaggia/as05-assistente-conversacional-pdf.git
+
+cd as05-assistente-conversacional-pdf
 
 ### **2. Instalar as Dependências**
 
@@ -61,9 +61,10 @@ Adicione sua chave a este arquivo da seguinte forma:
 
 HUGGINGFACEHUB_API_TOKEN="hf_sua_chave_secreta_aqui"
 
-### **4.  Adicionar seus Documentos PDF**
+### **4.  Execução da Aplicação**
 
-Coloque todos os arquivos PDF que você deseja que o assistente analise dentro da pasta /data. Se a pasta não existir, crie-a.
+rode o comando: streamlit run app.py
 
-Execução da Aplicação
-A aplicação é executada em duas etapas:
+Seu navegador padrão deverá abrir automaticamente no endereço http://localhost:8501 com a aplicação em funcionamento(provavelmente se for sua primeira vez usando o streamlit ele vai pedir para fazer login, porem não é obrigatorio, so apertar enter com os espaços em branco que o projeto ira rodar).
+
+Com isso é so fazer upload de seus arquivos pedir para serem processados e apos isso so fazer perguntas sobre ele!
